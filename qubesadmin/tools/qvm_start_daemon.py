@@ -762,8 +762,9 @@ def main(args=None):
     only_if_service_enabled = ['guivm', 'audiovm']
     enabled_services = [service for service in only_if_service_enabled if
                         os.path.exists('/var/run/qubes-service/%s' % service)]
-    if not enabled_services and '--force' not in sys.argv and \
-            not os.path.exists('/etc/qubes-release'):
+    if os.path.exists('/etc/qubes-release'):
+			enabled_services = only_if_service_enabled
+    if not enabled_services and '--force' not in sys.argv:
         print(parser.format_help())
         return
     args = parser.parse_args(args)
