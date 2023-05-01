@@ -120,6 +120,7 @@ def serialize_gui_daemon_options(options):
 NON_ASCII_RE = re.compile(r'[^\x00-\x7F]')
 UNPRINTABLE_CHARACTER_RE = re.compile(r'[\x00-\x1F\x7F]')
 
+
 def escape_config_string(value):
     '''
     Convert a string to libconfig format.
@@ -144,7 +145,7 @@ def escape_config_string(value):
     )
     value = UNPRINTABLE_CHARACTER_RE.sub(
           lambda m: r'\x{:02x}'.format(ord(m.group(0))),
-        value)
+          value)
     return '"' + value + '"'
 
 
@@ -173,6 +174,7 @@ REGEX_OUTPUT = re.compile(r"""(?x)                           # ignore whitespace
 
 class KeyboardLayout:
     """Class to store and parse X Keyboard layout data"""
+
     # pylint: disable=too-few-public-methods
     def __init__(self, binary_string):
         split_string = binary_string.split(b'\0')
@@ -190,6 +192,7 @@ class KeyboardLayout:
 
 class XWatcher:
     """Watch and react for X events related to the keyboard layout changes."""
+
     def __init__(self, conn, app):
         self.app = app
         self.current_vm = self.app.domains[self.app.local_name]
@@ -491,7 +494,7 @@ class DAEMONLauncher:
         :param monitor_layout: monitor layout to send; if None, fetch it from
             local X server.
         """
-        if not "guivm" in self.services:
+        if "guivm" not in self.services:
             return
 
         guid_cmd = self.common_guid_args(vm)
@@ -522,7 +525,7 @@ class DAEMONLauncher:
 
         This function is a coroutine.
         """
-        if not "guivm" in self.services:
+        if "guivm" not in self.services:
             return
 
         want_stubdom = force
@@ -553,7 +556,7 @@ class DAEMONLauncher:
 
         :param vm: VM for which start AUDIO daemon
         """
-        if not "audiovm" in self.services:
+        if "audiovm" not in self.services:
             return
 
         # pylint: disable=no-self-use
@@ -572,7 +575,7 @@ class DAEMONLauncher:
             one for target AppVM is running.
         :param monitor_layout: monitor layout configuration
         """
-        if not "guivm" in self.services:
+        if "guivm" not in self.services:
             return
 
         guivm = getattr(vm, 'guivm', None)
@@ -596,7 +599,7 @@ class DAEMONLauncher:
 
         :param vm: VM for which AUDIO daemon should be started
         """
-        if not "audiovm" in self.services:
+        if "audiovm" not in self.services:
             return
 
         audiovm = getattr(vm, 'audiovm', None)
@@ -617,7 +620,7 @@ class DAEMONLauncher:
         if not self.is_watched(vm):
             return
 
-        if not "guivm" in self.services:
+        if "guivm" not in self.services:
             return
 
         try:
@@ -679,8 +682,8 @@ class DAEMONLauncher:
                 asyncio.ensure_future(self.start_audio(vm))
                 self.xid_cache[vm.name] = vm.xid, vm.stubdom_xid
             elif power_state == 'Transient':
-                #it is still starting, we'll get 'domain-start'
-                #event when fully started
+                # it is still starting, we'll get 'domain-start'
+                # event when fully started
                 if vm.virt_mode == 'hvm':
                     asyncio.ensure_future(
                         self.start_gui_for_stubdomain(vm))
@@ -763,7 +766,7 @@ def main(args=None):
     enabled_services = [service for service in only_if_service_enabled if
                         os.path.exists('/var/run/qubes-service/%s' % service)]
     if os.path.exists('/etc/qubes-release'):
-			enabled_services = only_if_service_enabled
+        enabled_services = only_if_service_enabled
     if not enabled_services and '--force' not in sys.argv:
         print(parser.format_help())
         return
@@ -779,7 +782,7 @@ def main(args=None):
         args.app,
         vm_names=vm_names,
         kde=args.kde,
-	services=enabled_services)
+        services=enabled_services)
 
     if args.watch:
         fd = os.open(args.pidfile,
