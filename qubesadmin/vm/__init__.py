@@ -34,11 +34,6 @@ import qubesadmin.devices
 import qubesadmin.firewall
 import qubesadmin.tags
 
-if not hasattr(shlex, 'quote'):
-    # python2 compat
-    import pipes
-    shlex.quote = pipes.quote
-
 class QubesVM(qubesadmin.base.PropertyHolder):
     '''Qubes domain.'''
 
@@ -357,6 +352,25 @@ class QubesVM(qubesadmin.base.PropertyHolder):
                     yield vm
             except AttributeError:
                 pass
+
+    @property
+    def derived_vms(self):
+        """
+        Return list of all domains based on the current TemplateVM
+        at any level of inheritance.
+        """
+        return list(QubesVM._get_derived_vms(self))
+
+    @staticmethod
+    def _get_derived_vms(vm):
+        """
+        Return `set` of all domains based on the current TemplateVM
+        at any level of inheritance.
+        """
+        result = set(vm.appvms)
+        for appvm in vm.appvms:
+            result.update(QubesVM._get_derived_vms(appvm))
+        return result
 
     @property
     def connected_vms(self):
