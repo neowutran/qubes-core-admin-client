@@ -333,6 +333,7 @@ class DAEMONLauncher:
         self.started_processes = {}
         self.vm_names = vm_names
         self.kde = kde
+        self.services = services
 
         # cache XID values when the VM was still running -
         # for cleanup purpose
