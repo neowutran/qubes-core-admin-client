@@ -850,7 +850,8 @@ def main(args=None):
                 loop.run_until_complete(events_listener)
             except asyncio.CancelledError:
                 pass
-            loop.remove_reader(x_fd)
+            if "guivm" in enabled_services:
+                loop.remove_reader(x_fd)
             loop.stop()
             loop.run_forever()
             loop.close()
