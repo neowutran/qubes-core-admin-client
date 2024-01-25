@@ -671,12 +671,13 @@ class DAEMONLauncher:
         """Handler of 'connection-established' event, used to launch GUI/AUDIO
         daemon for domains started before this tool. """
 
+        self.app.domains.clear_cache()
+
         if "guivm" in self.services:
             monitor_layout = get_monitor_layout()
-            self.app.domains.clear_cache()
 
         for vm in self.app.domains:
-            if "guivm" in self.services and vm.klass == 'AdminVM':
+            if vm.klass == 'AdminVM':
                 continue
 
             if not self.is_watched(vm):
@@ -684,16 +685,22 @@ class DAEMONLauncher:
 
             power_state = vm.get_power_state()
             if power_state == 'Running':
-                asyncio.ensure_future(
-                    self.start_gui(vm, monitor_layout=monitor_layout))
-                asyncio.ensure_future(self.start_audio(vm))
+
+                if "guivm" in self.services:
+                    asyncio.ensure_future(
+                        self.start_gui(vm, monitor_layout=monitor_layout))
+
+                if "audiovm" in self.services:
+                    asyncio.ensure_future(self.start_audio(vm))
+
                 self.xid_cache[vm.name] = vm.xid, vm.stubdom_xid
             elif power_state == 'Transient':
                 # it is still starting, we'll get 'domain-start'
                 # event when fully started
-                if vm.virt_mode == 'hvm':
+                if vm.virt_mode == 'hvm' and "guivm" in self.services:
                     asyncio.ensure_future(
                         self.start_gui_for_stubdomain(vm))
+
 
     def on_domain_stopped(self, vm, _event, **_kwargs):
         """Handler of 'domain-stopped' event, cleans up"""
