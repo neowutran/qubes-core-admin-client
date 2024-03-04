@@ -708,8 +708,19 @@ class DAEMONLauncher:
             return
         if xid != -1:
             self.cleanup_guid(xid)
+            self.cleanup_pacat_process(xid)
         if stubdom_xid != -1:
             self.cleanup_guid(stubdom_xid)
+            self.cleanup_pacat_process(stubdom_xid)
+
+    def cleanup_pacat_process(self, xid):
+        try:
+            with open(self.pacat_pidfile(xid)) as f:
+                pid = int(f.readline())
+                os.kill(pid, signal.SIGTERM)
+                print(f"Sent SIGTERM signal to pacat-simple-vchan process {pid}")
+        except OSError:
+            print(f"Failed to send SIGTERM signal for the pacat-simple-vchan with xid of {xid}")
 
     def cleanup_guid(self, xid):
         """
