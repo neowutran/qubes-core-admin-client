@@ -694,28 +694,32 @@ class DAEMONLauncher:
         monitor_layout = get_monitor_layout()
         self.app.domains.clear_cache()
         for vm in self.app.domains:
-            if vm.klass == 'AdminVM':
-                continue
+            try:
+                if vm.klass == 'AdminVM':
+                    continue
 
-            if not self.is_watched(vm):
-                continue
+                if not self.is_watched(vm):
+                    continue
 
-            power_state = vm.get_power_state()
-            if power_state == 'Running':
-                if "guivm" in self.enabled_services:
-                    asyncio.ensure_future(
-                        self.start_gui(vm, monitor_layout=monitor_layout)
-                    )
-                if "audiovm" in self.enabled_services:
-                    asyncio.ensure_future(self.start_audio(vm))
-                self.xid_cache[vm.name] = vm.xid, vm.stubdom_xid
-            elif power_state == 'Transient':
-                # it is still starting, we'll get 'domain-start'
-                # event when fully started
-                if "guivm" in self.enabled_services and vm.virt_mode == 'hvm':
-                    asyncio.ensure_future(
-                        self.start_gui_for_stubdomain(vm)
-                    )
+                power_state = vm.get_power_state()
+                if power_state == 'Running':
+                    if "guivm" in self.enabled_services:
+                        asyncio.ensure_future(
+                            self.start_gui(vm, monitor_layout=monitor_layout)
+                        )
+                    if "audiovm" in self.enabled_services:
+                        asyncio.ensure_future(self.start_audio(vm))
+                    self.xid_cache[vm.name] = vm.xid, vm.stubdom_xid
+                elif power_state == 'Transient':
+                    # it is still starting, we'll get 'domain-start'
+                    # event when fully started
+                    if "guivm" in self.enabled_services \
+                            and vm.virt_mode == 'hvm':
+                        asyncio.ensure_future(
+                            self.start_gui_for_stubdomain(vm)
+                        )
+            except qubesadmin.exc.QubesDaemonCommunicationError as e:
+                vm.log.warning("Failed to handle %s: %s", vm.name, str(e))
 
     def on_domain_stopped(self, vm, _event, **_kwargs):
         """Handler of 'domain-stopped' event, cleans up"""
@@ -736,7 +740,7 @@ class DAEMONLauncher:
             self.cleanup_guid(stubdom_xid)
             self.cleanup_pacat_process(stubdom_xid)
 
-    def on_property_audiovm_set(self, vm, _event, **_kwargs):
+    def on_property_audiovm_set(self, vm, event, **kwargs):
         """Handler for catching event related to dynamic AudioVM set/unset"""
         if vm.name not in self.xid_cache:
             try:
@@ -745,7 +749,13 @@ class DAEMONLauncher:
                 log.error("vm.name: failed to determine XID: %s", str(e))
                 return
         xid, stubdom_xid = self.xid_cache[vm.name]
-        newvalue = _kwargs.get("newvalue", None)
+        # We ensure that on_property_audiovm_set is really called with
+        # newvalue as kwarg to not fallback all the times to vm.audiovm
+        # in order to have newvalue=None as requested.
+        if "newvalue" in kwargs:  # pylint: disable=consider-using-get
+            newvalue = kwargs["newvalue"]
+        else:
+            newvalue = str(getattr(vm, "audiovm", None))
         if newvalue != self.app.local_name:
             if xid != -1:
                 self.cleanup_pacat_process(xid)
@@ -756,8 +766,11 @@ class DAEMONLauncher:
                     del self.xid_cache[vm.name]
             except KeyError:
                 return
-        elif (newvalue == self.app.local_name and
-              vm.get_power_state() == "Running"):
+        if (
+                event in ["property-set:audiovm", "property-reset:audiovm"]
+                and newvalue == self.app.local_name
+                and vm.get_power_state() == "Running"
+        ):
             asyncio.ensure_future(self.start_audio(vm))
 
     def cleanup_guid(self, xid):
@@ -788,7 +801,7 @@ class DAEMONLauncher:
                     "Sent SIGTERM signal to pacat-simple-vchan process %d", pid)
         except OSError:
             log.error("Failed to send SIGTERM signal for the"
-                      " pacat-simple-vchan with xid of %d", xid)
+                      " pacat-simple-vchan with xid of %s", xid)
         os.unlink(config_file)
 
     def register_events(self, events):
@@ -799,8 +812,12 @@ class DAEMONLauncher:
                            self.on_connection_established)
         events.add_handler('domain-stopped', self.on_domain_stopped)
 
-        for event in ["property-set:audiovm", "property-pre-set:audiovm",
-                      "property-pre-del:audiovm"]:
+        for event in [
+            "property-set:audiovm",
+            "property-pre-set:audiovm",
+            "property-pre-reset:audiovm",
+            "property-reset:audiovm"
+        ]:
             events.add_handler(event, self.on_property_audiovm_set)
 
     def is_watched(self, vm):
